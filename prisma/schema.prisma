@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ConversationStatus {
+  OPEN
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  ARCHIVED
+}
+
+enum MessageAuthor {
+  CUSTOMER
+  STAFF
+  SYSTEM
+}
+
+model Customer {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  createdAt     DateTime       @default(now())
+  conversations Conversation[]
+}
+
+model StaffMember {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  active        Boolean        @default(true)
+  conversations Conversation[]
+  messages      Message[]
+}
+
+model Conversation {
+  id           String             @id @default(cuid())
+  subject      String
+  status       ConversationStatus @default(OPEN)
+  customer     Customer           @relation(fields: [customerId], references: [id])
+  customerId   String
+  assignee     StaffMember?       @relation(fields: [assigneeId], references: [id])
+  assigneeId   String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  messages     Message[]
+
+  @@index([status])
+  @@index([customerId])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  author         MessageAuthor
+  staff          StaffMember?  @relation(fields: [staffId], references: [id])
+  staffId        String?
+  body           String
+  createdAt      DateTime      @default(now())
+
+  @@index([conversationId])
+}
+
+model PlantCareArticle {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  species   String
+  body      String
+  tags      String[]
+  createdAt DateTime @default(now())
+}

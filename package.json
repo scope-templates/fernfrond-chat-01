@@ -1,0 +1,27 @@
+{
+  "name": "fern-and-frond-support",
+  "version": "1.2.0",
+  "description": "Support chat backend for the Fern & Frond plant nursery",
+  "main": "dist/server.js",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "build": "prisma generate && tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "migrate": "prisma migrate dev",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "express": "^4.21.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "prisma": "^5.22.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.4"
+  }
+}
