@@ -1,67 +1,73 @@
 import { PrismaClient } from '@prisma/client';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 const prisma = new PrismaClient();
 
+type Seed = {
+  staff: { email: string; name: string }[];
+  customers: { email: string; name: string; createdAt: string }[];
+  articles: { slug: string; title: string; species: string; body: string; tags: string[] }[];
+  conversations: {
+    subject: string;
+    customerEmail: string;
+    assigneeEmail: string | null;
+    status: 'OPEN' | 'WAITING_ON_CUSTOMER' | 'RESOLVED' | 'ARCHIVED';
+    createdAt: string;
+    messages: { author: 'CUSTOMER' | 'STAFF' | 'SYSTEM'; staffEmail: string | null; body: string; createdAt: string }[];
+  }[];
+};
+
 async function main() {
-  const rose = await prisma.staffMember.upsert({
-    where: { email: 'rose@fernandfrond.example' },
-    update: {},
-    create: { email: 'rose@fernandfrond.example', name: 'Rose Okafor' },
-  });
+  const seed: Seed = JSON.parse(readFileSync(join(__dirname, 'seed-data.json'), 'utf8'));
 
-  await prisma.staffMember.upsert({
-    where: { email: 'dev@fernandfrond.example' },
-    update: {},
-    create: { email: 'dev@fernandfrond.example', name: 'Devon Marsh' },
-  });
+  const staffId = new Map<string, string>();
+  for (const s of seed.staff) {
+    const row = await prisma.staffMember.upsert({ where: { email: s.email }, update: {}, create: s });
+    staffId.set(s.email, row.id);
+  }
+  const customerId = new Map<string, string>();
+  for (const c of seed.customers) {
+    const row = await prisma.customer.upsert({
+      where: { email: c.email },
+      update: {},
+      create: { email: c.email, name: c.name, createdAt: new Date(c.createdAt) },
+    });
+    customerId.set(c.email, row.id);
+  }
+  for (const a of seed.articles) {
+    await prisma.plantCareArticle.upsert({ where: { slug: a.slug }, update: {}, create: a });
+  }
 
-  const customer = await prisma.customer.upsert({
-    where: { email: 'harriet@example.com' },
-    update: {},
-    create: { email: 'harriet@example.com', name: 'Harriet Vale' },
-  });
-
-  await prisma.plantCareArticle.upsert({
-    where: { slug: 'monstera-yellow-leaves' },
-    update: {},
-    create: {
-      slug: 'monstera-yellow-leaves',
-      title: 'Why are my monstera leaves turning yellow?',
-      species: 'Monstera deliciosa',
-      body: 'Yellowing usually means overwatering. Let the top two inches of soil dry out before watering again.',
-      tags: ['monstera', 'watering', 'yellowing'],
-    },
-  });
-
-  await prisma.plantCareArticle.upsert({
-    where: { slug: 'fern-humidity' },
-    update: {},
-    create: {
-      slug: 'fern-humidity',
-      title: 'Keeping ferns from crisping up',
-      species: 'Nephrolepis exaltata',
-      body: 'Ferns want humidity above 50%. Group plants together or use a pebble tray.',
-      tags: ['fern', 'humidity', 'browning'],
-    },
-  });
-
-  const convo = await prisma.conversation.create({
-    data: {
-      subject: 'My fern is going brown at the tips',
-      customerId: customer.id,
-      assigneeId: rose.id,
-      status: 'WAITING_ON_CUSTOMER',
-      messages: {
-        create: [
-          { author: 'CUSTOMER', body: 'The tips of my Boston fern keep browning. Help!' },
-          { author: 'STAFF', staffId: rose.id, body: 'Sounds like low humidity. How often do you mist it?' },
-        ],
+  const existing = await prisma.conversation.count();
+  if (existing > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`Conversations already present (${existing}); not loading the history again.`);
+    return;
+  }
+  let loaded = 0;
+  for (const c of seed.conversations) {
+    await prisma.conversation.create({
+      data: {
+        subject: c.subject,
+        status: c.status,
+        customerId: customerId.get(c.customerEmail)!,
+        assigneeId: c.assigneeEmail ? staffId.get(c.assigneeEmail) ?? null : null,
+        createdAt: new Date(c.createdAt),
+        messages: {
+          create: c.messages.map((m) => ({
+            author: m.author,
+            staffId: m.staffEmail ? staffId.get(m.staffEmail) ?? null : null,
+            body: m.body,
+            createdAt: new Date(m.createdAt),
+          })),
+        },
       },
-    },
-  });
-
+    });
+    loaded += 1;
+  }
   // eslint-disable-next-line no-console
-  console.log(`Seeded conversation ${convo.id}`);
+  console.log(`Seeded ${loaded} conversations`);
 }
 
 main()

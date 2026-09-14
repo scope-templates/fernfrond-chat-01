@@ -56,3 +56,15 @@ waiting for a supervisor to approve a reply before it is sent) is done by hand.
 Replies are delivered through the local `src/notifications.ts` stub, and there is no
 streaming of partial answers back to the customer, no persistence of any in-progress
 assist run, and no way to pause a reply for human approval before it goes out.
+
+## The history
+
+`prisma/seed-data.json` holds six months of the support chat (March to August 2026): six hundred and twenty
+customers, twenty care articles, five staff accounts and a thousand conversations with their messages.
+`npx ts-node prisma/seed.ts` loads it into an empty database and leaves a database that already has
+conversations alone.
+
+One of the five staff accounts is **Fern & Frond Assistant**. Since March the assistant answers every new
+chat first, from the care library, and a person steps in when the customer asks for one or when the
+assistant cannot help; that hand-over is a `SYSTEM` message ("Handed to Rose Okafor") and a change of
+assignee. Customers on the monthly plant box write in here too, about skipping, pausing and stopping it.
